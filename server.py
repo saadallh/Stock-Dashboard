@@ -1,38 +1,88 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, session, g
 from dotenv import load_dotenv
+import secrets
+from flask_session import Session
 import sqlite3
 import os
 from newsapi import NewsApiClient
+from flask_cors import CORS
 
+# Load environment variables
+load_dotenv()
+
+# Initialize Flask app
 app = Flask(__name__)
+app.secret_key = secrets.token_hex(16)
 
-# Initialize SQLite database
-conn = sqlite3.connect('stock_dashboard.db', check_same_thread=False)
-cursor = conn.cursor()
+# Enable CORS for all routes, allow credentials, and specify the frontend origin
+CORS(app, supports_credentials=True, origins=["http://localhost:3000"])
 
-# Create a users table if it doesn't exist
-cursor.execute('''
-    CREATE TABLE IF NOT EXISTS users (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        username TEXT UNIQUE NOT NULL,
-        password TEXT NOT NULL
-    )
-''')
-conn.commit()
+# Configure Flask-Session
+app.config['SESSION_TYPE'] = 'filesystem'
+Session(app)
 
-# Create a watchlist table if it doesn't exist
-cursor.execute('''
-    CREATE TABLE IF NOT EXISTS watchlist (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        username TEXT NOT NULL,
-        ticker TEXT NOT NULL,
-        FOREIGN KEY (username) REFERENCES users (username)
-    )
-''')
-conn.commit()
+# Database file path
+DATABASE = 'stock_dashboard.db'
+
+# Function to get the database connection
+def get_db():
+    if 'db' not in g:
+        g.db = sqlite3.connect(DATABASE, check_same_thread=False)
+    return g.db
+
+# Function to get a new cursor
+def get_cursor():
+    return get_db().cursor()
+
+# Close the database connection at the end of each request
+@app.teardown_appcontext
+def close_db(exception):
+    db = g.pop('db', None)
+    if db is not None:
+        db.close()
+
+# Initialize database tables
+def init_db():
+    with app.app_context():
+        db = get_db()
+        cursor = db.cursor()
+
+        # Create a portfolio table if it doesn't exist
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS portfolio (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                username TEXT NOT NULL,
+                ticker TEXT NOT NULL,
+                shares INTEGER NOT NULL,
+                FOREIGN KEY (username) REFERENCES users (username)
+            )
+        ''')
+
+        # Create a users table if it doesn't exist
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS users (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                username TEXT UNIQUE NOT NULL,
+                password TEXT NOT NULL
+            )
+        ''')
+
+        # Create a watchlist table if it doesn't exist
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS watchlist (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                username TEXT NOT NULL,
+                ticker TEXT NOT NULL,
+                FOREIGN KEY (username) REFERENCES users (username)
+            )
+        ''')
+
+        db.commit()
+
+# Initialize the database tables
+init_db()
 
 # Initialize NewsAPI client
-load_dotenv()
 NEWS_API_KEY = os.getenv('NEWS_API_KEY')  # Use environment variable or hardcode (not recommended)
 newsapi = NewsApiClient(api_key=NEWS_API_KEY)
 
@@ -43,23 +93,38 @@ def register():
     username = data.get('username')
     password = data.get('password')
     try:
+        cursor = get_cursor()
         cursor.execute('INSERT INTO users (username, password) VALUES (?, ?)', (username, password))
-        conn.commit()
+        get_db().commit()
         return jsonify({"message": "User registered successfully"}), 201
     except sqlite3.IntegrityError:
         return jsonify({"message": "Username already exists"}), 400
 
-# Endpoint to authenticate a user
+# Endpoint to log in a user
 @app.route('/login', methods=['POST'])
 def login():
     data = request.json
     username = data.get('username')
     password = data.get('password')
-    cursor.execute('SELECT password FROM users WHERE username = ?', (username,))
-    result = cursor.fetchone()
-    if result and result[0] == password:
-        return jsonify({"message": "Login successful"}), 200
-    return jsonify({"message": "Invalid credentials"}), 401
+    print(f"Login attempt: username={username}, password={password}")  # Debugging
+    try:
+        cursor = get_cursor()
+        cursor.execute('SELECT password FROM users WHERE username = ?', (username,))
+        result = cursor.fetchone()
+        if result and result[0] == password:
+            session['username'] = username  # Store username in session
+            print(f"Session created: {session}")  # Debugging
+            return jsonify({"message": "Login successful"}), 200
+        return jsonify({"message": "Invalid credentials"}), 401
+    except sqlite3.Error as e:
+        print(f"Database error: {e}")
+        return jsonify({"message": "Database error"}), 500
+
+# Endpoint to log out a user
+@app.route('/logout', methods=['POST'])
+def logout():
+    session.pop('username', None)  # Remove username from session
+    return jsonify({"message": "Logged out successfully"}), 200
 
 # Endpoint to add a stock to the user's watchlist
 @app.route('/watchlist/add', methods=['POST'])
@@ -68,18 +133,27 @@ def add_to_watchlist():
     username = data.get('username')
     ticker = data.get('ticker')
     try:
+        cursor = get_cursor()
         cursor.execute('INSERT INTO watchlist (username, ticker) VALUES (?, ?)', (username, ticker))
-        conn.commit()
+        get_db().commit()
         return jsonify({"message": "Stock added to watchlist"}), 201
     except sqlite3.IntegrityError:
         return jsonify({"message": "Stock already in watchlist"}), 400
+    except sqlite3.Error as e:
+        print(f"Database error: {e}")
+        return jsonify({"message": "Database error"}), 500
 
 # Endpoint to fetch the user's watchlist
 @app.route('/watchlist/<username>', methods=['GET'])
 def get_watchlist(username):
-    cursor.execute('SELECT ticker FROM watchlist WHERE username = ?', (username,))
-    watchlist = [row[0] for row in cursor.fetchall()]
-    return jsonify({"watchlist": watchlist}), 200
+    try:
+        cursor = get_cursor()
+        cursor.execute('SELECT ticker FROM watchlist WHERE username = ?', (username,))
+        watchlist = [row[0] for row in cursor.fetchall()]
+        return jsonify({"watchlist": watchlist}), 200
+    except sqlite3.Error as e:
+        print(f"Database error: {e}")
+        return jsonify({"message": "Failed to fetch watchlist"}), 500
 
 # Endpoint to fetch stock data
 @app.route('/stock/<ticker>', methods=['GET'])
@@ -103,5 +177,36 @@ def get_news(query):
     articles = newsapi.get_everything(q=query, language='en', sort_by='relevancy', page_size=5)
     return jsonify(articles['articles']), 200
 
+# Endpoint to fetch user portfolio
+@app.route('/portfolio/<username>', methods=['GET'])
+def get_portfolio(username):
+    try:
+        cursor = get_cursor()
+        cursor.execute('SELECT ticker, shares FROM portfolio WHERE username = ?', (username,))
+        portfolio = [{"ticker": row[0], "shares": row[1]} for row in cursor.fetchall()]
+        return jsonify({"portfolio": portfolio}), 200
+    except sqlite3.Error as e:
+        print(f"Database error: {e}")
+        return jsonify({"message": "Failed to fetch portfolio"}), 500
+
+# Endpoint to add a stock to the user's portfolio
+@app.route('/portfolio/add', methods=['POST'])
+def add_to_portfolio():
+    data = request.json
+    username = data.get('username')
+    ticker = data.get('ticker')
+    shares = data.get('shares')
+    try:
+        cursor = get_cursor()
+        cursor.execute('INSERT INTO portfolio (username, ticker, shares) VALUES (?, ?, ?)', (username, ticker, shares))
+        get_db().commit()
+        return jsonify({"message": "Stock added to portfolio"}), 201
+    except sqlite3.IntegrityError:
+        return jsonify({"message": "Stock already in portfolio"}), 400
+    except sqlite3.Error as e:
+        print(f"Database error: {e}")
+        return jsonify({"message": "Database error"}), 500
+
+# Run the Flask app
 if __name__ == '__main__':
     app.run(debug=True)
