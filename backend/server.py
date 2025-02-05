@@ -16,7 +16,7 @@ app = Flask(__name__)
 app.secret_key = secrets.token_hex(16)
 
 # Enable CORS for all routes, allow credentials, and specify the frontend origin
-CORS(app, supports_credentials=True, origins=["http://localhost:3000"])
+CORS(app, supports_credentials=True, origins=["http://my-app-lb-1827961121.us-west-2.elb.amazonaws.com:3000"])
 
 # Configure Flask-Session
 app.config['SESSION_TYPE'] = 'filesystem'
