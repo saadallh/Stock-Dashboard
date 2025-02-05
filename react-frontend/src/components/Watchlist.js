@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
+import "./Watchlist.css"; // Import Watchlist CSS
 
 function Watchlist({ user }) {
   const [watchlist, setWatchlist] = useState([]);
@@ -8,7 +9,7 @@ function Watchlist({ user }) {
   // Fetch watchlist on component mount
   useEffect(() => {
     fetchWatchlist();
-  }, []);
+  }, [user]);
 
   // Fetch watchlist from backend
   const fetchWatchlist = async () => {
@@ -32,27 +33,47 @@ function Watchlist({ user }) {
       );
       setNewTicker("");
       fetchWatchlist(); // Refresh watchlist
-      alert(`${newTicker} added to your watchlist!`);
     } catch (error) {
       alert("Failed to add stock to watchlist");
     }
   };
 
+  // Remove a stock from the watchlist
+  const removeFromWatchlist = async (ticker) => {
+    try {
+      await axios.post(
+        "http://localhost:5000/watchlist/remove",
+        { username: user, ticker },
+        { withCredentials: true }
+      );
+      fetchWatchlist(); // Refresh watchlist
+    } catch (error) {
+      console.error("Failed to remove stock from watchlist:", error);
+    }
+  };
+
   return (
-    <div>
+    <div className="watchlist">
       <h3>Your Watchlist</h3>
       <ul>
         {watchlist.map((ticker, index) => (
-          <li key={index}>{ticker}</li>
+          <li key={index}>
+            {ticker}
+            <button className="remove-button" onClick={() => removeFromWatchlist(ticker)}>
+              Remove
+            </button>
+          </li>
         ))}
       </ul>
-      <input
-        type="text"
-        placeholder="Add a stock to your watchlist"
-        value={newTicker}
-        onChange={(e) => setNewTicker(e.target.value)}
-      />
-      <button onClick={addToWatchlist}>Add to Watchlist</button>
+      <div className="add-ticker">
+        <input
+          type="text"
+          placeholder="Add a stock to your watchlist"
+          value={newTicker}
+          onChange={(e) => setNewTicker(e.target.value)}
+        />
+        <button onClick={addToWatchlist}>Add</button>
+      </div>
     </div>
   );
 }

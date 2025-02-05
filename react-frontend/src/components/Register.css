@@ -1,0 +1,80 @@
+/* Register.css */
+.register-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    background: linear-gradient(135deg, #6a11cb, #2575fc);
+  }
+  
+  .register-card {
+    background: white;
+    padding: 2rem;
+    border-radius: 10px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+    width: 100%;
+    max-width: 400px;
+    text-align: center;
+    animation: fadeIn 0.5s ease-in-out;
+  }
+  
+  .register-card h2 {
+    color: #333;
+    margin-bottom: 1.5rem;
+  }
+  
+  .register-card input {
+    width: 100%;
+    padding: 0.75rem;
+    margin: 0.5rem 0;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    font-size: 1rem;
+  }
+  
+  .register-card button {
+    width: 100%;
+    padding: 0.75rem;
+    background: #2575fc;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    font-size: 1rem;
+    cursor: pointer;
+    margin-top: 1rem;
+    transition: background 0.3s ease;
+  }
+  
+  .register-card button:hover {
+    background: #1a5bbf;
+  }
+  
+  .error {
+    color: #ff4d4d;
+    margin-top: 1rem;
+  }
+  
+  .login-link {
+    margin-top: 1rem;
+    color: #666;
+  }
+  
+  .login-link a {
+    color: #2575fc;
+    text-decoration: none;
+  }
+  
+  .login-link a:hover {
+    text-decoration: underline;
+  }
+  
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+      transform: translateY(-20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }

@@ -1,6 +1,7 @@
 from flask import Flask, request, jsonify, session, g
 from dotenv import load_dotenv
 import secrets
+import yfinance as yf
 from flask_session import Session
 import sqlite3
 import os
@@ -132,6 +133,18 @@ def add_to_watchlist():
     data = request.json
     username = data.get('username')
     ticker = data.get('ticker')
+
+    # Check if the ticker is valid using yfinance
+    try:
+        stock = yf.Ticker(ticker)
+        hist = stock.history(period="1d")  # Fetch 1 day of history to validate the ticker
+        if hist.empty:
+            return jsonify({"message": "Invalid ticker or no data available"}), 404
+    except Exception as e:
+        print(f"Error fetching stock data: {e}")
+        return jsonify({"message": "Invalid ticker or no data available"}), 404
+
+    # Add the ticker to the watchlist
     try:
         cursor = get_cursor()
         cursor.execute('INSERT INTO watchlist (username, ticker) VALUES (?, ?)', (username, ticker))
@@ -142,6 +155,21 @@ def add_to_watchlist():
     except sqlite3.Error as e:
         print(f"Database error: {e}")
         return jsonify({"message": "Database error"}), 500
+
+# Endpoint to remove a stock from the user's watchlist
+@app.route('/watchlist/remove', methods=['POST'])
+def remove_from_watchlist():
+    data = request.json
+    username = data.get('username')
+    ticker = data.get('ticker')
+    try:
+        cursor = get_cursor()
+        cursor.execute('DELETE FROM watchlist WHERE username = ? AND ticker = ?', (username, ticker))
+        get_db().commit()
+        return jsonify({"message": "Stock removed from watchlist"}), 200
+    except sqlite3.Error as e:
+        print(f"Database error: {e}")
+        return jsonify({"message": "Failed to remove stock from watchlist"}), 500
 
 # Endpoint to fetch the user's watchlist
 @app.route('/watchlist/<username>', methods=['GET'])
@@ -158,7 +186,7 @@ def get_watchlist(username):
 # Endpoint to fetch stock data
 @app.route('/stock/<ticker>', methods=['GET'])
 def get_stock(ticker):
-    import yfinance as yf
+    
     period = request.args.get('period', '1d')  # Get the period from query parameters
     stock = yf.Ticker(ticker)
     hist = stock.history(period=period)
@@ -174,7 +202,10 @@ def get_stock(ticker):
 # Endpoint to fetch news articles
 @app.route('/news/<query>', methods=['GET'])
 def get_news(query):
+    print("I'm Here //////////////////////////////////////////////")
     articles = newsapi.get_everything(q=query, language='en', sort_by='relevancy', page_size=5)
+    print("Query")
+    
     return jsonify(articles['articles']), 200
 
 # Endpoint to fetch user portfolio
@@ -207,6 +238,5 @@ def add_to_portfolio():
         print(f"Database error: {e}")
         return jsonify({"message": "Database error"}), 500
 
-# Run the Flask app
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(host='0.0.0.0', port=5000, debug=True)
