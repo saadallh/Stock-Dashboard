@@ -87,7 +87,7 @@ init_db()
 NEWS_API_KEY = os.getenv('NEWS_API_KEY')  # Use environment variable or hardcode (not recommended)
 newsapi = NewsApiClient(api_key=NEWS_API_KEY)
 
-@app.route('/')
+@app.route('/',methods=['GET'])
 def health_check():
     return jsonify({"message": "Hi from the backend"}), 200  # ALB expects a 2xx response
 
