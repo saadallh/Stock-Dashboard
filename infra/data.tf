@@ -1,7 +1,15 @@
-# Fetch available Availability Zones in the region specified by the provider
-data "aws_availability_zones" "available" {}
-
-# Fetch the default VPC (if you want to use the default VPC)
+# Data source to retrieve the default VPC
 data "aws_vpc" "default" {
   default = true
 }
+
+# Data source to retrieve the default subnets
+data "aws_subnets" "default" {
+  filter {
+    name   = "default-for-az"
+    values = ["true"]
+  }
+}
+
+# Data source to retrieve available availability zones
+data "aws_availability_zones" "available" {}

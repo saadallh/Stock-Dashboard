@@ -1,4 +1,5 @@
 
+
 # ECR Repositories for Frontend and Backend
 resource "aws_ecr_repository" "frontend" {
   name = "my-app-frontend"
@@ -31,8 +32,8 @@ resource "aws_ecs_task_definition" "frontend" {
       essential = true
       portMappings = [
         {
-          containerPort = 80
-          hostPort      = 80
+          containerPort = 3000
+          hostPort      = 3000
         }
       ]
     }
@@ -74,7 +75,7 @@ resource "aws_ecs_service" "frontend" {
   launch_type     = "FARGATE"
 
   network_configuration {
-    subnets         = aws_subnet.public.*.id
+    subnets         = data.aws_subnets.default.ids
     security_groups = [aws_security_group.ecs_sg.id]
     assign_public_ip = true
   }
@@ -82,7 +83,7 @@ resource "aws_ecs_service" "frontend" {
   load_balancer {
     target_group_arn = aws_lb_target_group.frontend.arn
     container_name   = "frontend"
-    container_port   = 80
+    container_port   = 3000
   }
 }
 
@@ -95,7 +96,7 @@ resource "aws_ecs_service" "backend" {
   launch_type     = "FARGATE"
 
   network_configuration {
-    subnets         = aws_subnet.public.*.id
+    subnets         = data.aws_subnets.default.ids
     security_groups = [aws_security_group.ecs_sg.id]
     assign_public_ip = true
   }
@@ -137,8 +138,8 @@ resource "aws_security_group" "ecs_sg" {
   vpc_id      = data.aws_vpc.default.id
 
   ingress {
-    from_port   = 80
-    to_port     = 80
+    from_port   = 3000
+    to_port     = 3000
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
   }
@@ -158,29 +159,21 @@ resource "aws_security_group" "ecs_sg" {
   }
 }
 
-# VPC and Subnets
-
-resource "aws_subnet" "public" {
-  count             = 2
-  vpc_id            = data.aws_vpc.default.id
-  cidr_block        = cidrsubnet(data.aws_vpc.default.cidr_block, 8, count.index)
-  availability_zone = element(data.aws_availability_zones.available.names, count.index)
-}
-
 # Load Balancer
 resource "aws_lb" "my_app" {
   name               = "my-app-lb"
   internal           = false
   load_balancer_type = "application"
   security_groups    = [aws_security_group.ecs_sg.id]
-  subnets            = aws_subnet.public.*.id
+  subnets            = data.aws_subnets.default.ids
 }
 
 resource "aws_lb_target_group" "frontend" {
   name     = "frontend-tg"
-  port     = 80
+  port     = 3000
   protocol = "HTTP"
   vpc_id   = data.aws_vpc.default.id
+  target_type = "ip"
 }
 
 resource "aws_lb_target_group" "backend" {
@@ -188,11 +181,12 @@ resource "aws_lb_target_group" "backend" {
   port     = 5000
   protocol = "HTTP"
   vpc_id   = data.aws_vpc.default.id
+  target_type = "ip"
 }
 
 resource "aws_lb_listener" "frontend" {
   load_balancer_arn = aws_lb.my_app.arn
-  port              = 80
+  port              = 3000
   protocol          = "HTTP"
 
   default_action {
