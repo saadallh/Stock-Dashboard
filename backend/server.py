@@ -84,8 +84,7 @@ def init_db():
 init_db()
 
 # Initialize NewsAPI client
-#NEWS_API_KEY = os.getenv('NEWS_API_KEY')  # Use environment variable or hardcode (not recommended)
-NEWS_API_KEY = "d40fa564810544a68726d7755e269812"
+NEWS_API_KEY = os.getenv('NEWS_API_KEY')  # Use environment variable or hardcode (not recommended)
 newsapi = NewsApiClient(api_key=NEWS_API_KEY)
 
 @app.route('/',methods=['GET'])
