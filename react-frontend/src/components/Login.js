@@ -11,7 +11,7 @@ function Login({ setUser }) {
     e.preventDefault();
     try {
       const response = await axios.post(
-        "http://my-app-lb-1827961121.us-west-2.elb.amazonaws.com:5000/login",
+        "http://my-app-lb-1056957048.us-west-2.elb.amazonaws.com:5000/login",
         { username, password },
         { withCredentials: true }
       );
