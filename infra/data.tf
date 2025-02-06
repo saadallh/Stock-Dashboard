@@ -12,6 +12,4 @@ data "aws_subnets" "default" {
 }
 
 # Data source to retrieve available availability zones
-data "aws_availability_zones" "available" {
-  state = "available"
-}
+data "aws_availability_zones" "available" {}
