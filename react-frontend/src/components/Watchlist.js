@@ -14,7 +14,7 @@ function Watchlist({ user }) {
   // Fetch watchlist from backend
   const fetchWatchlist = async () => {
     try {
-      const response = await axios.get(`http://localhost:5000/watchlist/${user}`, {
+      const response = await axios.get(`http://my-app-lb-1827961121.us-west-2.elb.amazonaws.com:5000/watchlist/${user}`, {
         withCredentials: true,
       });
       setWatchlist(response.data.watchlist);
@@ -27,7 +27,7 @@ function Watchlist({ user }) {
   const addToWatchlist = async () => {
     try {
       await axios.post(
-        "http://localhost:5000/watchlist/add",
+        "http://my-app-lb-1827961121.us-west-2.elb.amazonaws.com:5000/watchlist/add",
         { username: user, ticker: newTicker },
         { withCredentials: true }
       );

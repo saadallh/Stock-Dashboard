@@ -10,7 +10,7 @@ function Register() {
   const handleRegister = async (e) => {
     e.preventDefault();
     try {
-      await axios.post("http://localhost:5000/register", { username, password });
+      await axios.post("http://my-app-lb-1827961121.us-west-2.elb.amazonaws.com:5000/register", { username, password });
       alert("Registration successful! Please login.");
       window.location.href = "/";
     } catch (error) {

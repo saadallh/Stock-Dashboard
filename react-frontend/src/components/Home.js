@@ -34,7 +34,7 @@ function Home({ user, setUser }) {
 
   const handleLogout = async () => {
     try {
-      await axios.post("http://localhost:5000/logout", {}, { withCredentials: true });
+      await axios.post("http://my-app-lb-1827961121.us-west-2.elb.amazonaws.com:5000/logout", {}, { withCredentials: true });
       setUser(null);
       window.location.href = "/";
     } catch (error) {
@@ -45,7 +45,7 @@ function Home({ user, setUser }) {
   // Fetch stock data from the backend
   const fetchStockData = async (ticker, period) => {
     try {
-      const response = await axios.get(`http://localhost:5000/stock/${ticker}`, {
+      const response = await axios.get(`http://my-app-lb-1827961121.us-west-2.elb.amazonaws.com:5000/stock/${ticker}`, {
         params: { period }, // Use the selected period
       });
       setStockData(response.data);
@@ -57,7 +57,7 @@ function Home({ user, setUser }) {
   // Fetch news data
   const fetchNews = async (symbol) => {
     try {
-      const response = await axios.get(`http://localhost:5000/news/${symbol}`);
+      const response = await axios.get(`http://my-app-lb-1827961121.us-west-2.elb.amazonaws.com:5000/news/${symbol}`);
       setNews(response.data);
     } catch (error) {
       console.error("Failed to fetch news:", error);

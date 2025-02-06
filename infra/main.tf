@@ -1,5 +1,3 @@
-
-
 # ECR Repositories for Frontend and Backend
 resource "aws_ecr_repository" "frontend" {
   name = "my-app-frontend"
@@ -14,11 +12,33 @@ resource "aws_ecs_cluster" "my_cluster" {
   name = "my-app-cluster"
 }
 
+# EC2 Capacity Provider (Optional)
+resource "aws_ecs_capacity_provider" "ec2_capacity_provider" {
+  name = "ec2-capacity-provider"
+
+  auto_scaling_group_provider {
+    auto_scaling_group_arn = aws_autoscaling_group.ecs_asg.arn
+  }
+}
+
+# Associate Capacity Provider with ECS Cluster
+resource "aws_ecs_cluster_capacity_providers" "my-app-cluster-capacity-providers" {
+  cluster_name = aws_ecs_cluster.my_cluster.name
+
+  capacity_providers = [aws_ecs_capacity_provider.ec2_capacity_provider.name]
+
+  default_capacity_provider_strategy {
+    base              = 1
+    weight            = 100
+    capacity_provider = aws_ecs_capacity_provider.ec2_capacity_provider.name
+  }
+}
+
 # ECS Task Definition for Frontend
 resource "aws_ecs_task_definition" "frontend" {
   family                   = "frontend"
-  network_mode             = "awsvpc"
-  requires_compatibilities = ["FARGATE"]
+  network_mode             = "bridge"  # or "host" depending on your use case
+  requires_compatibilities = ["EC2"]
   cpu                      = "256"
   memory                   = "512"
   execution_role_arn       = aws_iam_role.ecs_task_execution_role.arn
@@ -43,8 +63,8 @@ resource "aws_ecs_task_definition" "frontend" {
 # ECS Task Definition for Backend
 resource "aws_ecs_task_definition" "backend" {
   family                   = "backend"
-  network_mode             = "awsvpc"
-  requires_compatibilities = ["FARGATE"]
+  network_mode             = "bridge"  # or "host" depending on your use case
+  requires_compatibilities = ["EC2"]
   cpu                      = "256"
   memory                   = "512"
   execution_role_arn       = aws_iam_role.ecs_task_execution_role.arn
@@ -72,13 +92,9 @@ resource "aws_ecs_service" "frontend" {
   cluster         = aws_ecs_cluster.my_cluster.id
   task_definition = aws_ecs_task_definition.frontend.arn
   desired_count   = 1
-  launch_type     = "FARGATE"
+  launch_type     = "EC2"
 
-  network_configuration {
-    subnets         = data.aws_subnets.default.ids
-    security_groups = [aws_security_group.ecs_sg.id]
-    assign_public_ip = true
-  }
+
 
   load_balancer {
     target_group_arn = aws_lb_target_group.frontend.arn
@@ -93,13 +109,9 @@ resource "aws_ecs_service" "backend" {
   cluster         = aws_ecs_cluster.my_cluster.id
   task_definition = aws_ecs_task_definition.backend.arn
   desired_count   = 1
-  launch_type     = "FARGATE"
+  launch_type     = "EC2"
 
-  network_configuration {
-    subnets         = data.aws_subnets.default.ids
-    security_groups = [aws_security_group.ecs_sg.id]
-    assign_public_ip = true
-  }
+
 
   load_balancer {
     target_group_arn = aws_lb_target_group.backend.arn
@@ -173,7 +185,7 @@ resource "aws_lb_target_group" "frontend" {
   port     = 3000
   protocol = "HTTP"
   vpc_id   = data.aws_vpc.default.id
-  target_type = "ip"
+  target_type = "instance"  # Changed from "ip" to "instance" for EC2
 }
 
 resource "aws_lb_target_group" "backend" {
@@ -181,7 +193,7 @@ resource "aws_lb_target_group" "backend" {
   port     = 5000
   protocol = "HTTP"
   vpc_id   = data.aws_vpc.default.id
-  target_type = "ip"
+  target_type = "instance"  # Changed from "ip" to "instance" for EC2
 }
 
 resource "aws_lb_listener" "frontend" {
@@ -205,3 +217,38 @@ resource "aws_lb_listener" "backend" {
     target_group_arn = aws_lb_target_group.backend.arn
   }
 }
+
+resource "aws_launch_template" "ecs_launch_template" {
+  name_prefix    = "ecs-launch-template-"
+  image_id       = "ami-0005ee01bca55ab66"  # ECS-optimized AMI
+  instance_type  = "t2.micro"
+  security_group_names = [aws_security_group.ecs_sg.name]
+
+  # Use base64encode() function to encode user data
+  user_data = base64encode("#!/bin/bash\necho ECS_CLUSTER=${aws_ecs_cluster.my_cluster.name} >> /etc/ecs/ecs.config")
+
+  lifecycle {
+    create_before_destroy = true
+  }
+}
+
+# Auto Scaling Group for EC2 Instances
+resource "aws_autoscaling_group" "ecs_asg" {
+  availability_zones = ["us-west-2a","us-west-2b"]
+  min_size                  = 1
+  max_size                  = 3
+  desired_capacity          = 1
+  launch_template {
+    id = aws_launch_template.ecs_launch_template.id
+    version = "$Latest"
+  }
+
+  tag {
+    key                 = "NAme"
+    value               = "ECS Instance"
+    propagate_at_launch = true
+  }
+}
+
+
+
