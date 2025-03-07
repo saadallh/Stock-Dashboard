@@ -1,18 +1,18 @@
 # Python
 __pycache__/
 venv/
-#.env
+.env
 *.pyc
 *.pyo
 *.pyd
-#*.db
+*.db
 *.sqlite3
 
 # Streamlit
 
 # IDE
 .vscode/
-#backend/flask_session
+backend/flask_session
 
 # Ignore Terraform's local directories in the /infra directory
 /infra/.terraform/*
@@ -47,9 +47,4 @@ venv/
 /infra/terraform.rc
 /infra/.aws
 
-# You can still include specific override files using negation patterns, if needed
-# /infra/!example_override.tf
-
-# You may also ignore plan files, but keep the pattern flexible
-# /infra/*tfplan*
 
