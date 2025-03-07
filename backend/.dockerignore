@@ -1,0 +1,9 @@
+# Ignore everything by default
+*
+
+# But don't ignore these files and directories
+!requirements.txt
+!server.py
+!stock_dashboard.db
+!flask_session/
+!.env
